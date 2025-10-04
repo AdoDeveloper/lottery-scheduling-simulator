@@ -158,7 +158,6 @@ class SimuladorLoteria:
     def _prestar_tickets(self, cliente, servidor):
         """
         Cliente presta sus tickets a su servidor.
-        Implementa 'Ticket Transfer' de la teoría.
         """
         if servidor in self.cola_listos:
             tickets_prestados = cliente.num_tickets
