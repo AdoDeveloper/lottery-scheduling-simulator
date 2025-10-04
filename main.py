@@ -193,11 +193,8 @@ class InterfazSimulador:
         self.entry_tickets.insert(0, "20")
         self.entry_tickets.grid(row=3, column=1, padx=5, pady=3)
         
-        tk.Label(proceso_frame, text="Servidor (0=ninguno):", bg='white', 
-                font=('Arial', 9)).grid(row=4, column=0, sticky=tk.W, padx=5, pady=3)
         self.entry_servidor = ttk.Entry(proceso_frame, width=8)
         self.entry_servidor.insert(0, "0")
-        self.entry_servidor.grid(row=4, column=1, padx=5, pady=3)
         
         btn_frame = tk.Frame(proceso_frame, bg='white')
         btn_frame.grid(row=5, column=0, columnspan=2, pady=10)
@@ -208,11 +205,28 @@ class InterfazSimulador:
                                      relief=tk.RAISED, bd=2, cursor='hand2', width=15)
         self.btn_agregar.pack(side=tk.LEFT, padx=3)
         
-        self.btn_aleatorio = tk.Button(btn_frame, text="5 Aleatorios", 
+        self.btn_aleatorio = tk.Button(btn_frame, text="Aleatorios", 
                                       command=self.agregar_procesos_aleatorios,
                                       bg='#9b59b6', fg='white', font=('Arial', 9, 'bold'),
                                       relief=tk.RAISED, bd=2, cursor='hand2', width=12)
         self.btn_aleatorio.pack(side=tk.LEFT, padx=3)
+        
+        # NUEVA SECCIÓN: Configuración de procesos aleatorios
+        aleatorio_config_frame = tk.LabelFrame(frame_controles, text=" Configuración de Aleatorios ", 
+                                              bg='white', font=('Arial', 10, 'bold'))
+        aleatorio_config_frame.pack(fill=tk.X, padx=10, pady=10)
+        
+        tk.Label(aleatorio_config_frame, text="Cantidad de procesos:", bg='white', 
+                font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W, padx=5, pady=3)
+        self.entry_cant_aleatorios = ttk.Entry(aleatorio_config_frame, width=8)
+        self.entry_cant_aleatorios.insert(0, "5")
+        self.entry_cant_aleatorios.grid(row=0, column=1, padx=5, pady=3)
+        
+        info_aleatorio = tk.Label(aleatorio_config_frame, 
+                                 text="💡 Si hay pool global activado,\nlos tickets se distribuyen\nautomáticamente entre procesos.",
+                                 bg='#e8f4f8', fg='#2c3e50', font=('Arial', 8),
+                                 justify=tk.LEFT, padx=5, pady=5)
+        info_aleatorio.grid(row=1, column=0, columnspan=2, sticky=tk.W+tk.E, padx=5, pady=5)
         
         # SECCIÓN 3: Lista de procesos creados
         lista_frame = tk.LabelFrame(frame_controles, text=" Procesos Creados ", 
@@ -392,7 +406,6 @@ class InterfazSimulador:
         def _on_mousewheel(event):
             canvas_scroll.yview_scroll(int(-1*(event.delta/120)), "units")
         
-        # CAMBIO: usar bind en lugar de bind_all
         canvas_scroll.bind("<Enter>", lambda e: canvas_scroll.bind_all("<MouseWheel>", _on_mousewheel))
         canvas_scroll.bind("<Leave>", lambda e: canvas_scroll.unbind_all("<MouseWheel>"))
         
@@ -432,7 +445,6 @@ class InterfazSimulador:
         self.tree_cola.column('CPU', width=60, anchor=tk.CENTER)
         self.tree_cola.column('Pri', width=40, anchor=tk.CENTER)
         self.tree_cola.column('Serv', width=50, anchor=tk.CENTER)
-        
         scrollbar_tree = ttk.Scrollbar(cola_frame, orient=tk.VERTICAL, 
                                       command=self.tree_cola.yview)
         self.tree_cola.configure(yscroll=scrollbar_tree.set)
@@ -552,66 +564,161 @@ class InterfazSimulador:
             messagebox.showerror("Error", "Por favor ingresa valores numéricos válidos")
     
     def agregar_procesos_aleatorios(self):
-        """Agrega 5 procesos con valores aleatorios"""
+        """Agrega N procesos distribuyendo tickets según el pool global"""
         try:
+            # Obtener cantidad de procesos a crear
+            cantidad = int(self.entry_cant_aleatorios.get())
+            
+            if cantidad <= 0:
+                messagebox.showerror("Error", "La cantidad debe ser mayor a 0")
+                return
+            
+            if cantidad > 20:
+                respuesta = messagebox.askyesno(
+                    "Confirmación",
+                    f"¿Estás seguro de crear {cantidad} procesos?\n"
+                    f"Esto podría hacer la visualización confusa."
+                )
+                if not respuesta:
+                    return
+            
             base_id = len(self.procesos_creados) + 1
             
-            # Determinar rango de tickets según configuración
-            if self.var_tickets_manual.get():
-                # Si hay pool global, limitar tickets aleatorios al pool
-                if self.var_pool_global.get():
-                    try:
-                        pool_total = int(self.entry_pool.get())
-                        # Generar tickets proporcionales al pool (máximo pool/2 por proceso)
-                        min_tickets = max(1, pool_total // 10)
-                        max_tickets = max(5, pool_total // 2)
-                    except:
-                        min_tickets = 5
-                        max_tickets = 15
-                else:
-                    # Sin pool global, rango libre
-                    min_tickets = 10
-                    max_tickets = 50
-            else:
-                # Tickets automáticos: no aplica, se calculan por prioridad
-                min_tickets = None
-                max_tickets = None
+            # VERIFICAR que AMBAS opciones estén activadas para distribución inteligente
+            if self.var_pool_global.get() and self.var_tickets_manual.get():
+                try:
+                    pool_total = int(self.entry_pool.get())
+                    
+                    if pool_total < cantidad:
+                        messagebox.showerror("Error", 
+                            f"El pool ({pool_total}) es menor que la cantidad de procesos ({cantidad}).\n"
+                            f"Necesitas al menos {cantidad} tickets.")
+                        return
+                    
+                    # Distribuir tickets de manera inteligente
+                    tickets_asignados = self._distribuir_tickets_inteligente(pool_total, cantidad)
+                    
+                    if not tickets_asignados:  # Si falló la distribución
+                        return
+                    
+                    # Crear procesos con tickets distribuidos
+                    for i in range(cantidad):
+                        pid = base_id + i
+                        tiempo_cpu = random.randint(3, 10)
+                        prioridad = random.randint(1, 3)
+                        
+                        proceso = Proceso(identificador=pid, tiempo_cpu=tiempo_cpu, 
+                                        prioridad=prioridad, proceso_servidor=0)
+                        
+                        proceso.num_tickets = tickets_asignados[i]
+                        proceso.num_tickets_original = tickets_asignados[i]
+                        proceso.color = self.colores[len(self.procesos_creados) % len(self.colores)]
+                        self.procesos_creados.append(proceso)
+                    
+                    # Verificación de suma
+                    suma_real = sum(tickets_asignados)
+                    
+                    # Mensaje informativo con VERIFICACIÓN
+                    detalle_tickets = ", ".join([f"P{base_id + i}={tickets_asignados[i]}" 
+                                                for i in range(cantidad)])
+                    
+                    messagebox.showinfo(
+                        "Procesos Creados ✓",
+                        f"Se crearon {cantidad} procesos aleatorios\n\n"
+                        f"Pool global configurado: {pool_total} tickets\n"
+                        f"Suma de tickets asignados: {suma_real} tickets\n\n"
+                        f"Distribución:\n{detalle_tickets}\n\n"
+                        f"✓ VERIFICACIÓN: {suma_real} = {pool_total}"
+                    )
+                    
+                except ValueError:
+                    messagebox.showerror("Error", "El pool de tickets debe ser un número válido")
+                    return
             
-            for i in range(5):
-                pid = base_id + i
-                tiempo_cpu = random.randint(3, 10)
-                prioridad = random.randint(1, 3)
-                
-                proceso = Proceso(identificador=pid, tiempo_cpu=tiempo_cpu, 
-                                prioridad=prioridad, proceso_servidor=0)
-                
-                if self.var_tickets_manual.get():
-                    # Usar tickets aleatorios dentro del rango calculado
-                    proceso.num_tickets = random.randint(min_tickets, max_tickets)
-                    proceso.num_tickets_original = proceso.num_tickets
-                else:
+            # SIN pool global o SIN tickets manuales
+            else:
+                for i in range(cantidad):
+                    pid = base_id + i
+                    tiempo_cpu = random.randint(3, 10)
+                    prioridad = random.randint(1, 3)
+                    
+                    proceso = Proceso(identificador=pid, tiempo_cpu=tiempo_cpu, 
+                                    prioridad=prioridad, proceso_servidor=0)
+                    
                     # Tickets automáticos por prioridad
                     proceso.num_tickets = prioridad * 10
                     proceso.num_tickets_original = prioridad * 10
+                    
+                    proceso.color = self.colores[len(self.procesos_creados) % len(self.colores)]
+                    self.procesos_creados.append(proceso)
                 
-                proceso.color = self.colores[(len(self.procesos_creados)) % len(self.colores)]
-                self.procesos_creados.append(proceso)
+                messagebox.showinfo("Éxito", 
+                    f"{cantidad} procesos creados.\n\n"
+                    f"NOTA: Para distribución basada en pool,\n"
+                    f"activa AMBAS opciones:\n"
+                    f"1. Pool de tickets globales\n"
+                    f"2. Configurar tickets manualmente")
             
             self.actualizar_lista_procesos()
             self.entry_id.delete(0, tk.END)
-            self.entry_id.insert(0, str(base_id + 5))
+            self.entry_id.insert(0, str(base_id + cantidad))
             
-            # Mensaje informativo según configuración
-            if self.var_tickets_manual.get() and self.var_pool_global.get():
-                messagebox.showinfo("Éxito", 
-                                f"5 procesos aleatorios creados.\n\n"
-                                f"Tickets asignados entre {min_tickets} y {max_tickets}\n"
-                                f"(proporcionales al pool de {self.entry_pool.get()} tickets)")
-            else:
-                messagebox.showinfo("Éxito", "5 procesos aleatorios creados correctamente")
-            
+        except ValueError:
+            messagebox.showerror("Error", "La cantidad debe ser un número válido")
         except Exception as e:
             messagebox.showerror("Error", f"Error al crear procesos: {str(e)}")
+    
+    def _distribuir_tickets_inteligente(self, pool_total, cantidad):
+        """
+        Distribuye tickets de manera inteligente entre N procesos.
+        GARANTIZA que la suma sea exactamente pool_total.
+        
+        Estrategia:
+        1. Asigna ticket por ticket de manera aleatoria
+        2. Asegura que todos tengan al menos 1 ticket
+        3. Distribuye el resto aleatoriamente
+        
+        Args:
+            pool_total: Total de tickets a distribuir
+            cantidad: Número de procesos
+            
+        Returns:
+            Lista de enteros con tickets para cada proceso que SUMAN pool_total
+        """
+        if cantidad <= 0:
+            return []
+        
+        if pool_total < cantidad:
+            # Si no hay suficientes tickets para dar 1 a cada proceso
+            messagebox.showerror("Error", 
+                f"Pool insuficiente: {pool_total} tickets para {cantidad} procesos.\n"
+                f"Necesitas al menos {cantidad} tickets (1 por proceso).")
+            return []
+        
+        # Inicializar: dar 1 ticket a cada proceso
+        tickets = [1] * cantidad
+        tickets_restantes = pool_total - cantidad
+        
+        # Distribuir los tickets restantes de manera aleatoria pero controlada
+        while tickets_restantes > 0:
+            # Elegir un proceso aleatorio
+            idx = random.randint(0, cantidad - 1)
+            # Darle un ticket
+            tickets[idx] += 1
+            tickets_restantes -= 1
+        
+        # VERIFICACIÓN FINAL (debugging)
+        suma_final = sum(tickets)
+        if suma_final != pool_total:
+            # Esto NO debería ocurrir nunca con este algoritmo
+            messagebox.showerror("Error Crítico", 
+                f"Error en distribución: suma={suma_final}, esperado={pool_total}")
+            return []
+        
+        # Mezclar la lista para que no siempre los primeros tengan más
+        random.shuffle(tickets)
+        
+        return tickets
     
     def limpiar_procesos(self):
         """Limpia la lista de procesos"""
@@ -633,7 +740,7 @@ class InterfazSimulador:
         """Actualiza la lista visual de procesos"""
         self.listbox_procesos.delete(0, tk.END)
         for p in self.procesos_creados:
-            texto = f"P{p.identificador:2d} | CPU:{p.tiempo_cpu:2d} | Pri:{p.prioridad} | Tkt:{p.num_tickets:2d}"
+            texto = f"P{p.identificador:2d} | CPU:{p.tiempo_cpu:2d} | Pri:{p.prioridad} | Tkt:{p.num_tickets:3d}"
             if p.proceso_servidor != 0:
                 texto += f" | Srv:P{p.proceso_servidor}"
             self.listbox_procesos.insert(tk.END, texto)
@@ -644,7 +751,7 @@ class InterfazSimulador:
         if len(self.procesos_creados) == 0:
             messagebox.showwarning("Advertencia", 
                                  "Debes agregar al menos un proceso antes de iniciar.\n\n"
-                                 "Usa 'Agregar Proceso' o '5 Aleatorios'.")
+                                 "Usa 'Agregar Proceso' o 'Aleatorios'.")
             return
         
         try:
@@ -947,7 +1054,7 @@ class InterfazSimulador:
         self.btn_es.config(state=tk.DISABLED)
         
         # Mostrar estadísticas y análisis
-        stats = self.simulador.obtener_estadisticas()
+        stats= self.simulador.obtener_estadisticas()
         if stats:
             self.text_stats.delete(1.0, tk.END)
             
@@ -1013,19 +1120,24 @@ def main():
     # Mensaje de bienvenida
     messagebox.showinfo("Bienvenido al Simulador", 
                        "SIMULADOR DE PLANIFICACIÓN POR LOTERÍA\n\n"
-                       "Características:\n"
-                       "✓ Configuración manual de tickets\n"
-                       "✓ Pool de tickets globales\n"
+                       "Características NUEVAS:\n"
+                       "✓ Configuración de cantidad de procesos aleatorios\n"
+                       "✓ Distribución inteligente de tickets con pool global\n"
+                       "✓ Los tickets se reparten automáticamente\n"
                        "✓ Análisis teórico detallado\n"
                        "✓ Scroll en ambos paneles laterales\n\n"
                        "Instrucciones:\n"
-                       "1. Crea procesos (manualmente o aleatorios)\n"
-                       "2. Opcional: Activa configuraciones avanzadas\n"
-                       "3. Configura Quantum y velocidad\n"
-                       "4. Presiona 'INICIAR SIMULACIÓN'\n"
-                       "5. Observa y aprende del algoritmo\n\n"
-                       "Al finalizar verás POR QUÉ cada proceso\n"
-                       "terminó en su posición (1°, 2°, 3°, etc.)")
+                       "1. Opcional: Activa 'pool de tickets globales'\n"
+                       "2. Opcional: Activa 'configurar tickets manualmente'\n"
+                       "3. Define cantidad de procesos aleatorios (ej: 4)\n"
+                       "4. Presiona 'Aleatorios' para crear procesos\n"
+                       "   (Si pool está activo, tickets se distribuyen automáticamente)\n"
+                       "5. Configura Quantum y velocidad\n"
+                       "6. Presiona 'INICIAR SIMULACIÓN'\n\n"
+                       "EJEMPLO:\n"
+                       "Pool global: 30 tickets\n"
+                       "Cantidad: 4 procesos\n"
+                       "Resultado: P1=10, P2=6, P3=4, P4=10 (suma 30)")
     
     root.mainloop()
 

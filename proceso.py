@@ -35,14 +35,9 @@ class Proceso:
         self.color = None
         
     def es_cliente(self):
-        """Retorna True si el proceso es un cliente (tiene servidor)"""
         return self.proceso_servidor != 0
     
     def puede_ejecutarse(self, servidores_ejecutados):
-        """
-        Verifica si el proceso puede ejecutarse.
-        Los clientes solo pueden ejecutarse después de su servidor.
-        """
         if not self.es_cliente():
             return True
         return self.proceso_servidor in servidores_ejecutados

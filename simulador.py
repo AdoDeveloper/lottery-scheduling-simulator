@@ -16,7 +16,6 @@ class SimuladorLoteria:
     - Sorteo aleatorio basado en tickets
     - Asignación proporcional de CPU
     - Prevención de inanición mediante bonus por espera
-    - Soporte para relaciones cliente-servidor
     - Configuración de pool de tickets globales
     """
     
