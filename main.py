@@ -1120,7 +1120,7 @@ def main():
     # Mensaje de bienvenida
     messagebox.showinfo("Bienvenido al Simulador", 
                        "SIMULADOR DE PLANIFICACIÓN POR LOTERÍA\n\n"
-                       "Características NUEVAS:\n"
+                       "Características:\n"
                        "✓ Configuración de cantidad de procesos aleatorios\n"
                        "✓ Distribución inteligente de tickets con pool global\n"
                        "✓ Los tickets se reparten automáticamente\n"
