@@ -468,7 +468,7 @@ POSICIÓN 1er LUGAR: PROCESO P3
 
 - Tuvo suerte: ganó más de lo esperado estadísticamente
 
-Tecnologías
+##Tecnologías
 
   
 
@@ -495,54 +495,6 @@ Eliminar dependencias externas
 Maximizar compatibilidad entre plataformas
 
 Enfocarse en el algoritmo, no en frameworks
-
-  
-
-Ejemplos de Uso
-
-Ejemplo 1: Configuración Básica
-
-python# Crear 3 procesos con prioridades diferentes
-
-P1: CPU=5, Prioridad=3 → 30 tickets
-
-P2: CPU=7, Prioridad=2 → 20 tickets
-
-P3: CPU=4, Prioridad=1 → 10 tickets
-
-  
-
-Total tickets: 60
-
-P1 debería recibir ~50% de CPU
-
-P2 debería recibir ~33% de CPU
-
-P3 debería recibir ~17% de CPU
-
-Ejemplo 2: Pool Global
-
-python# Pool global de 100 tickets
-
-P1: 30 tickets → 30% del pool
-
-P2: 70 tickets → 70% del pool
-
-  
-
-Sorteo siempre entre 1-100
-
-P1 gana si sale 1-30
-
-P2 gana si sale 31-100
-
-Ejemplo 3: Cliente-Servidor
-
-python# Cliente presta tickets a servidor
-
-Cliente (P1): 20 tickets → presta al servidor
-
-Servidor (P2): 15 tickets + 20 prestados = 35 tickets
 
   
 
