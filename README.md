@@ -468,7 +468,7 @@ POSICIÓN 1er LUGAR: PROCESO P3
 
 - Tuvo suerte: ganó más de lo esperado estadísticamente
 
-##Tecnologías
+## Tecnologías
 
   
 
