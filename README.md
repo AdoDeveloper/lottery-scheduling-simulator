@@ -482,7 +482,7 @@ random: Generación de sorteos aleatorios
 
   
 
-Por Qué Python Puro
+### Por Qué Python Puro
 
 Este proyecto usa únicamente la biblioteca estándar de Python para:
 
@@ -495,11 +495,3 @@ Eliminar dependencias externas
 Maximizar compatibilidad entre plataformas
 
 Enfocarse en el algoritmo, no en frameworks
-
-  
-
-P2 se ejecuta primero (alta probabilidad)
-
-Cuando P2 termina, devuelve 20 tickets a P1
-
-P1 puede ejecutarse después
